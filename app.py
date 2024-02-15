@@ -12,28 +12,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from langchain.agents import AgentExecutor
+from langchain.memory import ConversationBufferMemory
+from langchain_community.callbacks import StreamlitCallbackHandler
+from langchain_community.chat_message_histories import StreamlitChatMessageHistory
+import pandas as pd
 import streamlit as st
-from datetime import datetime
-from llm_bedrock import retrieval_answer
+import re
+from llm_tools import chat_agent,tools,history
 
 # Constants for date range and document options
 MIN_YEAR = 2000
 MAX_YEAR = 2024
 DOCUMENT_TYPES = ['ALL', 'Annual Report','Fact Sheet', 'Article', 'Letter', 'Research Report', 'Appeal Letter', 'Book', 'Other']
 
+def render_search_results(documents):
+    """
+    Renders search results into a DataFrame for display.
+    Acepta una lista de objetos Document, extrayendo metadatos para cada uno.
+    """
+    metadata_list = []
+    for doc in documents:
+        # Asumimos que cada 'doc' es un objeto con un atributo 'metadata' accesible
+        metadata = doc.metadata  # Accediendo a los metadatos a través del atributo 'metadata'
+        
+        title = metadata.get('title', '')
+        source = metadata.get('source', '').replace('s3://', 'https://s3.amazonaws.com/')
+        doc_type = metadata.get('type', '')
+        year = metadata.get('year', '')
+        if year:
+            year = str(int(year))
+        metadata_list.append({"Title": title, "Source": source, "Type": doc_type, "Year": year})    
+    # Creando y desduplicando DataFrame
+    df = pd.DataFrame(metadata_list).drop_duplicates(subset=['Title'])
+    return df
+
 def run():
-    # Display the application title and caption
-    st.title("Policy Document Assistant")
-    st.caption("A Digital Services Project")
+        # Display the application title and caption
+    st.set_page_config(page_title="Policy Document Assistant")
+    st.title("A Digital Services Project")
 
-    # Initialize session state for chat messages if not already present
-    st.session_state["messages"] = [{"role": "user", "content": "UUS Assistant"}]
-
-    # Display chat messages from session state
-    for msg in st.session_state.messages:
-        st.chat_message(msg["role"]).write(msg["content"])
-
-    # Sidebar for filtering documents by time period and type
+        # Sidebar for filtering documents by time period and type
     with st.sidebar:
         st.image('https://unidosus.org/wp-content/themes/unidos/images/unidosus-logo-color-2x.png', use_column_width=True)
         st.title("Select Time Period")
@@ -41,24 +60,58 @@ def run():
         st.title("Select Document Type")
         selected_types = st.multiselect('Select Type:', DOCUMENT_TYPES)
 
-    # Input field for user queries
-    prompt = st.chat_input()
-    if prompt and len(prompt) > 0:
-        st.info("Your Input: " + prompt)
-        # Retrieve answer and metadata based on the user's query, selected years, and document types
-        answer, metadata = retrieval_answer(prompt, selected_years, selected_types)
-        st.subheader('Answer:')
-        st.write(answer)
-        st.subheader('Sources:')
-        st.data_editor(
-            metadata,
-            column_config={
-                "Source": st.column_config.LinkColumn("Source")
-            },
-            hide_index=True,
-            )
-    else:
-        st.error("Please enter a query.")
+    st.session_state['selected_years'] = selected_years
+    st.session_state['selected_types'] = selected_types
+    msgs = StreamlitChatMessageHistory()
+    memory = ConversationBufferMemory(
+        chat_memory=msgs, return_messages=True, memory_key="chat_history", output_key="output"
+    )
+
+    if len(msgs.messages) == 0 or st.sidebar.button("Reset chat history"):
+        msgs.clear()
+        msgs.add_ai_message("How can I help you?")
+        st.session_state.steps = {}
+
+    avatars = {"human": "user", "ai": "assistant"}
+    for idx, msg in enumerate(msgs.messages):
+        with st.chat_message(avatars[msg.type]):
+            # Render intermediate steps if any were saved
+            for step in st.session_state.steps.get(str(idx), []):
+                if step[0].tool == "_Exception":
+                    continue
+                with st.status(f"**{step[0].tool}**: {step[0].tool_input}", state="complete"):
+                    st.write(step[0].log)
+                    st.write(step[1])
+            st.write(msg.content)
+
+    if prompt := st.chat_input(placeholder="What is UnidosUS?"):
+        st.chat_message("user").write(prompt)
+        agent_executor = AgentExecutor(
+        agent=chat_agent,
+        tools=tools, 
+        memory=memory,
+        return_intermediate_steps=True,
+        handle_parsing_errors=True)
+        with st.chat_message("assistant"):
+            st_cb = StreamlitCallbackHandler(st.container(), expand_new_thoughts=False)
+            response = agent_executor.invoke({"input": f"{prompt}"},{"callbacks": [st_cb]})
+            #st.subheader('Answer:')
+            st.write(response["output"])
+            #st.write(response["intermediate_steps"][0][1])
+            if 'intermediate_steps' in response and len(response["intermediate_steps"]) > 0 and len(response["intermediate_steps"][0]) > 1:
+                documents = response["intermediate_steps"][0][1]
+                if documents:  # Adicionalmente verifica si la lista de documentos no está vacía
+                    df = render_search_results(documents)
+                    st.subheader('Sources:')
+                    st.data_editor(
+                        df,
+                        column_config={
+                            "Source": st.column_config.LinkColumn("Source")
+                        },
+                        hide_index=True,
+                        ) 
+            #process_and_save_messages(response["chat_history"])                           
+            st.session_state.steps[str(len(msgs.messages) - 1)] = response["intermediate_steps"]
 
 if __name__ == "__main__":
     run()
