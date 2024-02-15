@@ -4,6 +4,7 @@ pandas
 pydeck
 streamlit
 langchain
+langchain-openai
 pinecone-client
 boto3
 toml
