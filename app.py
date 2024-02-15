@@ -47,6 +47,10 @@ def render_search_results(documents):
     df = pd.DataFrame(metadata_list).drop_duplicates(subset=['Title'])
     return df
 
+def add_response_to_history(response):
+    history.add_user_message(response["input"])
+    history.add_ai_message(f'"{response["output"]}\"')
+
 def run():
         # Display the application title and caption
     st.set_page_config(page_title="Policy Document Assistant")
@@ -110,6 +114,7 @@ def run():
                         },
                         hide_index=True,
                         ) 
+            add_response_to_history(response)           
             #process_and_save_messages(response["chat_history"])                           
             st.session_state.steps[str(len(msgs.messages) - 1)] = response["intermediate_steps"]
 
