@@ -9,3 +9,4 @@ pinecone-client
 boto3
 toml
 openai
+langchainhub
