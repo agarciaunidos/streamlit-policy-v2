@@ -1,9 +1,7 @@
-import os
 import pandas as pd
 import pinecone
 import boto3
 import streamlit as st
-from dotenv import load_dotenv
 from langchain_community.vectorstores import Pinecone
 from langchain_community.embeddings import BedrockEmbeddings
 from langchain.agents import Tool
