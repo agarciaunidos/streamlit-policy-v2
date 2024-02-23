@@ -54,7 +54,7 @@ def add_response_to_history(response):
 def run():
         # Display the application title and caption
     st.set_page_config(page_title="Policy Document Assistant")
-    st.title("A Digital Services Project")
+    st.title("Policy Document Assistant - v2")
 
         # Sidebar for filtering documents by time period and type
     with st.sidebar:
