@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 from langchain.agents import create_json_chat_agent
 from langchain.memory import DynamoDBChatMessageHistory
 from langchain import hub
+from langchain_community.chat_models import BedrockChat
 
 PINECONE_API_KEY = st.secrets.PINECONE_API_KEY
 OPENAI_API_KEY = st.secrets.OPENAI_API_KEY
