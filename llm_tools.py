@@ -67,5 +67,5 @@ uus_tool =Tool(
 )
 tools = [uus_tool]
 prompt = hub.pull("hwchase17/react-chat-json")
-chat_agent = create_json_chat_agent(llm=llm_bedrock, tools=tools, prompt = prompt)
+chat_agent = create_json_chat_agent(llm=llm, tools=tools, prompt = prompt)
 
