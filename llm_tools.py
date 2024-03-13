@@ -19,7 +19,7 @@ openai_api_key = OPENAI_API_KEY
 session = boto3.Session(region_name='us-east-1')
 bedrock_client = boto3.client("bedrock-runtime", region_name='us-east-1')
 index_pinecone = 'unidosus-policy-test'
-llm_bedrock = BedrockChat(model_id="anthropic.claude-3-sonnet-20240229-v1:0", model_kwargs={"temperature": 0.1})
+llm_bedrock = BedrockChat(model_id="anthropic.claude-v2", model_kwargs={"temperature": 0.1})
 llm = ChatOpenAI(model_name="gpt-4-0125-preview", openai_api_key=openai_api_key, streaming=True)
 embeddings = BedrockEmbeddings(client=bedrock_client, region_name='us-east-1')
 history = DynamoDBChatMessageHistory(table_name="SessionTable", session_id="2", boto3_session=session)
@@ -67,5 +67,5 @@ uus_tool =Tool(
 )
 tools = [uus_tool]
 prompt = hub.pull("hwchase17/react-chat-json")
-chat_agent = create_json_chat_agent(llm=llm, tools=tools, prompt = prompt)
+chat_agent = create_json_chat_agent(llm=llm_bedrock, tools=tools, prompt = prompt)
 
